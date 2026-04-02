@@ -1,6 +1,6 @@
-# Dockerfile pour PHP-FPM 8.3
-# Image de base officielle PHP 8.3 avec FPM
-FROM php:8.3-fpm
+# Dockerfile pour PHP-FPM 8.4
+# Image de base officielle PHP 8.4 avec FPM
+FROM php:8.4-fpm
 
 # Installation des extensions PHP nécessaires pour Symfony + PostgreSQL
 RUN apt-get update && apt-get install -y \
