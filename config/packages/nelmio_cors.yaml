@@ -1,0 +1,36 @@
+# Configuration CORS (Cross-Origin Resource Sharing)
+# Autorise les requêtes depuis le frontend React (localhost:5173)
+# et depuis l'application Expo (toutes origines en dev)
+nelmio_cors:
+    defaults:
+        origin_regex: true
+        allow_origin:
+            # Frontend React en développement
+            - '^http://localhost:5173$'
+            # Application Expo (peut utiliser différents ports)
+            - '^http://localhost:19006$'
+            - '^exp://.*$'
+        allow_methods:
+            - GET
+            - POST
+            - PUT
+            - PATCH
+            - DELETE
+            - OPTIONS
+        allow_headers:
+            - Content-Type
+            - Authorization
+            - Accept
+        expose_headers:
+            - Link
+        max_age: 3600
+    paths:
+        # Applique la configuration CORS à toutes les routes /api/
+        '^/api/':
+            allow_origin:
+                - '^http://localhost:5173$'
+                - '^http://localhost:19006$'
+                - '^exp://.*$'
+            allow_headers: ['*']
+            allow_methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']
+            max_age: 3600
