@@ -13,6 +13,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Repository\ArticleRepository;
+use App\State\ArticleStateProcessor;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -23,11 +24,14 @@ use Symfony\Component\Validator\Constraints as Assert;
     normalizationContext: ['groups' => ['article:read']],
     denormalizationContext: ['groups' => ['article:write']],
     operations: [
-        // Lire les articles publiés : accessible à tous les utilisateurs connectés
+        // Lire les articles : accessible à tous les utilisateurs connectés
         new GetCollection(),
         new Get(),
-        // Créer un article : réservé aux admins
-        new Post(security: "is_granted('ROLE_ADMIN')"),
+        // Créer un article : le processor injecte l'auteur connecté automatiquement
+        new Post(
+            security: "is_granted('ROLE_ADMIN')",
+            processor: ArticleStateProcessor::class
+        ),
         // Modifier un article : admin OU auteur de l'article
         new Patch(security: "is_granted('ROLE_ADMIN') or object.getAuteur() == user"),
         // Supprimer : réservé aux admins
@@ -137,7 +141,9 @@ class Article
         return $this;
     }
 
-    public function isPublie(): bool
+    // Nommé getIsPublie() (et non isPublie()) pour que Symfony Serializer
+    // dérive l'attribut "isPublie" (isPublie() donnerait "publie", sans "is")
+    public function getIsPublie(): bool
     {
         return $this->isPublie;
     }
