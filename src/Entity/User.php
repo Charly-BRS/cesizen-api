@@ -47,10 +47,11 @@ use Symfony\Component\Validator\Constraints as Assert;
 class User implements UserInterface, PasswordAuthenticatedUserInterface
 {
     // Identifiant unique auto-généré par PostgreSQL
+    // "article:read" permet d'intégrer l'id dans la réponse d'un article
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]
-    #[Groups(['user:read'])]
+    #[Groups(['user:read', 'article:read'])]
     private ?int $id = null;
 
     // Email de l'utilisateur, utilisé comme identifiant de connexion
@@ -77,15 +78,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     private ?string $plainPassword = null;
 
     // Prénom de l'utilisateur
+    // "article:read" permet d'intégrer le prénom dans la réponse d'un article (auteur)
     #[ORM\Column(length: 100)]
-    #[Groups(['user:read', 'user:write'])]
+    #[Groups(['user:read', 'user:write', 'article:read'])]
     #[Assert\NotBlank(message: 'Le prénom est obligatoire.')]
     #[Assert\Length(max: 100)]
     private ?string $prenom = null;
 
     // Nom de famille de l'utilisateur
+    // "article:read" permet d'intégrer le nom dans la réponse d'un article (auteur)
     #[ORM\Column(length: 100)]
-    #[Groups(['user:read', 'user:write'])]
+    #[Groups(['user:read', 'user:write', 'article:read'])]
     #[Assert\NotBlank(message: 'Le nom est obligatoire.')]
     #[Assert\Length(max: 100)]
     private ?string $nom = null;
