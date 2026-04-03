@@ -13,6 +13,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Post;
 use ApiPlatform\Metadata\Patch;
 use App\Repository\UserSessionRepository;
+use App\State\UserSessionStateProcessor;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Component\Serializer\Annotation\Groups;
 use Symfony\Component\Validator\Constraints as Assert;
@@ -26,8 +27,11 @@ use Symfony\Component\Validator\Constraints as Assert;
         // Voir son historique : utilisateur connecté uniquement
         new GetCollection(security: "is_granted('ROLE_USER')"),
         new Get(security: "is_granted('ROLE_USER') and object.getUser() == user"),
-        // Démarrer une session : utilisateur connecté
-        new Post(security: "is_granted('ROLE_USER')"),
+        // Démarrer une session : notre processor injecte l'utilisateur connecté automatiquement
+        new Post(
+            security: "is_granted('ROLE_USER')",
+            processor: UserSessionStateProcessor::class
+        ),
         // Mettre à jour le statut (terminer / abandonner)
         new Patch(security: "is_granted('ROLE_USER') and object.getUser() == user"),
     ]
