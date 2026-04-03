@@ -104,9 +104,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(mappedBy: 'auteur', targetEntity: Article::class)]
     private Collection $articles;
 
+    // Sessions d'exercices de respiration effectuées par cet utilisateur
+    #[ORM\OneToMany(mappedBy: 'user', targetEntity: UserSession::class)]
+    private Collection $sessions;
+
     public function __construct()
     {
         $this->articles = new ArrayCollection();
+        $this->sessions = new ArrayCollection();
         // La date de création est définie automatiquement à l'instanciation
         $this->createdAt = new \DateTimeImmutable();
     }
@@ -222,5 +227,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function getArticles(): Collection
     {
         return $this->articles;
+    }
+
+    public function getSessions(): Collection
+    {
+        return $this->sessions;
     }
 }
