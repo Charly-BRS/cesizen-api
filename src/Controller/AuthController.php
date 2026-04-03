@@ -2,14 +2,16 @@
 
 // src/Controller/AuthController.php
 // Contrôleur gérant l'authentification des utilisateurs.
-// - POST /api/auth/register : inscription d'un nouvel utilisateur
-// - POST /api/auth/login    : géré automatiquement par LexikJWTBundle (voir security.yaml)
+// - POST /api/auth/register        : inscription d'un nouvel utilisateur
+// - POST /api/auth/login           : géré automatiquement par LexikJWTBundle (voir security.yaml)
+// - POST /api/auth/change-password : changement de mot de passe (utilisateur connecté)
 
 namespace App\Controller;
 
 use App\Entity\User;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -24,6 +26,7 @@ class AuthController extends AbstractController
         private EntityManagerInterface $entityManager,
         private UserPasswordHasherInterface $passwordHasher,
         private ValidatorInterface $validator,
+        private Security $security,
     ) {}
 
     // Inscription d'un nouvel utilisateur
@@ -103,5 +106,59 @@ class AuthController extends AbstractController
             ],
             Response::HTTP_CREATED
         );
+    }
+
+    // Changement de mot de passe pour l'utilisateur connecté.
+    // Reçoit : { "ancienMotDePasse": "...", "nouveauMotDePasse": "..." }
+    // Retourne : { "message": "..." }
+    #[Route('/change-password', name: 'api_auth_change_password', methods: ['POST'])]
+    public function changerMotDePasse(Request $request): JsonResponse
+    {
+        // Récupère l'utilisateur connecté depuis le token JWT
+        /** @var User|null $utilisateur */
+        $utilisateur = $this->security->getUser();
+
+        if (!$utilisateur instanceof User) {
+            return $this->json(
+                ['message' => 'Vous devez être connecté pour changer votre mot de passe.'],
+                Response::HTTP_UNAUTHORIZED
+            );
+        }
+
+        $donnees = json_decode($request->getContent(), true);
+
+        if (!$donnees) {
+            return $this->json(
+                ['message' => 'Le corps de la requête doit être un JSON valide.'],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
+        $ancienMotDePasse  = $donnees['ancienMotDePasse'] ?? '';
+        $nouveauMotDePasse = $donnees['nouveauMotDePasse'] ?? '';
+
+        // Vérifie que l'ancien mot de passe est correct
+        if (!$this->passwordHasher->isPasswordValid($utilisateur, $ancienMotDePasse)) {
+            return $this->json(
+                ['message' => 'L\'ancien mot de passe est incorrect.'],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
+        // Vérifie la longueur minimale du nouveau mot de passe
+        if (strlen($nouveauMotDePasse) < 8) {
+            return $this->json(
+                ['message' => 'Le nouveau mot de passe doit contenir au moins 8 caractères.'],
+                Response::HTTP_BAD_REQUEST
+            );
+        }
+
+        // Hache et sauvegarde le nouveau mot de passe
+        $motDePasseHache = $this->passwordHasher->hashPassword($utilisateur, $nouveauMotDePasse);
+        $utilisateur->setPassword($motDePasseHache);
+
+        $this->entityManager->flush();
+
+        return $this->json(['message' => 'Mot de passe modifié avec succès.']);
     }
 }
