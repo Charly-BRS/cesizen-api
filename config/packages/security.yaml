@@ -39,6 +39,8 @@ security:
             jwt: ~
 
     # Contrôle d'accès par chemin URL
+    # IMPORTANT : Symfony teste les règles dans l'ordre — la première qui correspond gagne.
+    # Les règles spécifiques doivent toujours être placées AVANT les règles générales.
     access_control:
         # Connexion et inscription : accessible sans être authentifié
         - { path: ^/api/auth/login, roles: PUBLIC_ACCESS }
@@ -46,6 +48,9 @@ security:
         # Documentation Swagger : accessible sans authentification
         - { path: ^/api/docs, roles: PUBLIC_ACCESS }
         - { path: ^/api/contexts, roles: PUBLIC_ACCESS }
+        # Exercices de respiration en lecture : accessibles sans compte (CDC F20)
+        # Seuls GET (liste et détail) sont publics — POST/PATCH/DELETE restent protégés
+        - { path: ^/api/breathing_exercises, roles: PUBLIC_ACCESS, methods: [GET] }
         # Toutes les autres routes /api/ nécessitent d'être connecté
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
 
