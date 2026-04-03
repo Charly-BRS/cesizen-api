@@ -132,9 +132,11 @@ class BreathingExercise
     public function setExpirationDuration(int $d): static { $this->expirationDuration = $d; return $this; }
     public function getCycles(): int { return $this->cycles; }
     public function setCycles(int $cycles): static { $this->cycles = $cycles; return $this; }
-    public function isPreset(): bool { return $this->isPreset; }
+    // Nommés getIs* (et non is*) pour que Symfony Serializer dérive l'attribut "isPreset"
+    // (un getter "isPreset()" donnerait l'attribut "preset", sans le préfixe "is")
+    public function getIsPreset(): bool { return $this->isPreset; }
     public function setIsPreset(bool $isPreset): static { $this->isPreset = $isPreset; return $this; }
-    public function isActive(): bool { return $this->isActive; }
+    public function getIsActive(): bool { return $this->isActive; }
     public function setIsActive(bool $isActive): static { $this->isActive = $isActive; return $this; }
     public function getSessions(): Collection { return $this->sessions; }
 }

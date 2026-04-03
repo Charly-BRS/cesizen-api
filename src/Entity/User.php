@@ -92,7 +92,7 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
 
     // Indique si le compte est actif (désactivé = ne peut plus se connecter)
     #[ORM\Column]
-    #[Groups(['user:read'])]
+    #[Groups(['user:read', 'user:write'])]
     private bool $isActif = true;
 
     // Date de création du compte (définie automatiquement)
@@ -202,7 +202,9 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function isActif(): bool
+    // Nommé getIsActif() (et non isActif()) pour que Symfony Serializer dérive l'attribut "isActif"
+    // (un getter "isActif()" donnerait l'attribut "actif", sans le préfixe "is")
+    public function getIsActif(): bool
     {
         return $this->isActif;
     }
