@@ -22,3 +22,12 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    # UserSessionStateProcessor : injecte l'utilisateur connecté lors de la création d'une session.
+    # Le "innerProcessor" est le processor par défaut d'API Platform (persist en base).
+    # On lui passe via le tag "api_platform.state_processor" avec le bon alias.
+    App\State\UserSessionStateProcessor:
+        arguments:
+            # 'api_platform.doctrine.orm.state.persist_processor' est le service
+            # interne d'API Platform qui sauvegarde l'entité via Doctrine.
+            $innerProcessor: '@api_platform.doctrine.orm.state.persist_processor'
