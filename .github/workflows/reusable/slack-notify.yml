@@ -1,0 +1,57 @@
+name: Slack Notify (Reusable)
+description: Send notifications to Slack
+
+on:
+  workflow_call:
+    inputs:
+      channel:
+        description: 'Slack channel (e.g., #deployments)'
+        required: true
+        type: string
+      status:
+        description: 'Status: success, failure, in-progress'
+        required: true
+        type: string
+      service-name:
+        description: 'Service being deployed/notified'
+        required: true
+        type: string
+      deployment-url:
+        description: 'URL of deployed service (optional)'
+        required: false
+        type: string
+      custom-message:
+        description: 'Custom message to include'
+        required: false
+        type: string
+    secrets:
+      slack-webhook-url:
+        description: 'Slack webhook URL'
+        required: true
+
+jobs:
+  notify:
+    name: Slack Notification
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Slack notification
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "${{ inputs.status == 'success' && '✅' || '❌' }} ${{ inputs.service-name }} - ${{ inputs.status }}",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*${{ inputs.service-name }}*\nStatus: ${{ inputs.status == 'success' && '✅ Success' || '❌ Failed' }}\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nAuthor: ${{ github.actor }}"
+                  }
+                }
+                ${{ inputs.deployment-url && format(', {{"type": "section", "text": {{"type": "mrkdwn", "text": "*Deployment URL:*\n<{0}|Open Service>"}}}}', inputs.deployment-url) || '' }}
+                ${{ inputs.custom-message && format(', {{"type": "section", "text": {{"type": "mrkdwn", "text": "{0}"}}}}', inputs.custom-message) || '' }}
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.slack-webhook-url }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK

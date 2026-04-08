@@ -1,0 +1,99 @@
+name: Build Docker Image (Reusable)
+description: Build and push Docker image to registry
+
+on:
+  workflow_call:
+    inputs:
+      image-name:
+        description: 'Docker image name (e.g., cesizen-api)'
+        required: true
+        type: string
+      dockerfile-path:
+        description: 'Path to Dockerfile'
+        required: true
+        type: string
+      context:
+        description: 'Build context directory'
+        required: true
+        type: string
+      registry:
+        description: 'Docker registry (ghcr.io, docker.io, etc.)'
+        required: false
+        type: string
+        default: 'ghcr.io'
+      tags:
+        description: 'Image tags (comma-separated)'
+        required: false
+        type: string
+        default: 'latest'
+    secrets:
+      registry-username:
+        description: 'Registry username'
+        required: true
+      registry-password:
+        description: 'Registry password/token'
+        required: true
+    outputs:
+      image-digest:
+        description: 'Image digest'
+        value: ${{ jobs.build.outputs.image-digest }}
+      image-url:
+        description: 'Full image URL'
+        value: ${{ jobs.build.outputs.image-url }}
+
+jobs:
+  build:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      image-digest: ${{ steps.docker-build.outputs.digest }}
+      image-url: ${{ steps.docker-build.outputs.image-url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ inputs.registry }}
+          username: ${{ secrets.registry-username }}
+          password: ${{ secrets.registry-password }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ inputs.registry }}/${{ secrets.registry-username }}/${{ inputs.image-name }}
+          tags: |
+            ${{ inputs.tags }}
+            type=sha,prefix={{branch}}-
+
+      - name: Build and push Docker image
+        id: docker-build
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ inputs.context }}
+          file: ${{ inputs.dockerfile-path }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ github.sha }}
+            BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+            VCS_REF=${{ github.sha }}
+            VCS_URL=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Set output values
+        run: |
+          echo "image-url=${{ inputs.registry }}/${{ secrets.registry-username }}/${{ inputs.image-name }}:latest" >> $GITHUB_OUTPUT
+        id: output
+
+      - name: Image digest
+        run: |
+          echo "Published image: ${{ inputs.registry }}/${{ secrets.registry-username }}/${{ inputs.image-name }}"
+          echo "Digest: ${{ steps.docker-build.outputs.digest }}"

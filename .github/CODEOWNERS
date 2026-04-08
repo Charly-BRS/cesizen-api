@@ -1,0 +1,27 @@
+# CESIZen Project Codeowners
+# Each line is a file pattern followed by one or more owners
+# Owners will be automatically requested for review on pull requests
+
+# Root level files and workflows
+* @Charly-BRS
+.github/ @Charly-BRS
+
+# API ownership
+cesizen-api/ @Charly-BRS
+cesizen-api/src/ @Charly-BRS
+cesizen-api/tests/ @Charly-BRS
+cesizen-api/config/ @Charly-BRS
+
+# Mobile app ownership
+cesizen-mobile/ @Charly-BRS
+cesizen-mobile/src/ @Charly-BRS
+cesizen-mobile/__tests__/ @Charly-BRS
+
+# Web app ownership
+cesizen-app/ @Charly-BRS
+cesizen-app/src/ @Charly-BRS
+cesizen-app/types/ @Charly-BRS
+
+# CI/CD workflows require special attention
+.github/workflows/ @Charly-BRS
+.github/workflows/reusable/ @Charly-BRS

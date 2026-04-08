@@ -1,0 +1,89 @@
+name: Deploy to Staging (Reusable)
+description: Deploy service to staging environment
+
+on:
+  workflow_call:
+    inputs:
+      service-name:
+        description: 'Service name (api, mobile, app)'
+        required: true
+        type: string
+      docker-image:
+        description: 'Docker image to deploy (for API only)'
+        required: false
+        type: string
+      smoke-test-url:
+        description: 'URL to test after deployment'
+        required: false
+        type: string
+
+jobs:
+  deploy-staging:
+    name: Deploy ${{ inputs.service-name }} to Staging
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Deploy API (Docker)
+        if: inputs.service-name == 'api'
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.DEPLOY_STAGING_HOST }}
+          username: ${{ secrets.DEPLOY_STAGING_USER }}
+          key: ${{ secrets.DEPLOY_STAGING_KEY }}
+          script: |
+            cd /app/cesizen-api
+            echo "Pulling latest image: ${{ inputs.docker-image }}"
+            docker pull ${{ inputs.docker-image }}
+            echo "Restarting API service..."
+            docker-compose up -d
+            sleep 5
+            echo "Running smoke test..."
+            curl -f http://localhost:8080/health || exit 1
+            echo "✅ API deployed successfully"
+
+      - name: Deploy Mobile to Staging
+        if: inputs.service-name == 'mobile'
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          npm ci
+          cd cesizen-mobile
+          npx expo publish --release-channel staging
+          echo "✅ Mobile app published to Expo staging"
+
+      - name: Deploy App to Staging
+        if: inputs.service-name == 'app'
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build
+          path: dist
+
+      - name: Deploy App to Netlify
+        if: inputs.service-name == 'app'
+        uses: nwtgck/actions-netlify@v3
+        with:
+          publish-dir: ./dist
+          production-branch: main
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          deploy-message: "Deploy from ${{ github.sha }}"
+          alias: staging-${{ github.run_number }}
+        env:
+          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+          NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+      - name: Smoke Test
+        if: inputs.smoke-test-url != ''
+        run: |
+          echo "Testing: ${{ inputs.smoke-test-url }}"
+          curl -f "${{ inputs.smoke-test-url }}" || exit 1
+          echo "✅ Smoke test passed"
+
+      - name: Report Deployment
+        if: always()
+        run: |
+          echo "Deployment Status: ${{ job.status }}"
+          echo "Service: ${{ inputs.service-name }}"
+          echo "Environment: staging"
+          echo "Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')"

@@ -1,0 +1,49 @@
+name: Coverage Upload (Reusable)
+description: Upload coverage reports to Codecov
+
+on:
+  workflow_call:
+    inputs:
+      coverage-files:
+        description: 'Paths to coverage files (comma-separated)'
+        required: true
+        type: string
+      service-name:
+        description: 'Service name for Codecov flags'
+        required: true
+        type: string
+    secrets:
+      codecov-token:
+        description: 'Codecov token'
+        required: true
+
+jobs:
+  upload-coverage:
+    name: Upload to Codecov
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: coverage/
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: ${{ inputs.coverage-files }}
+          flags: ${{ inputs.service-name }}
+          name: ${{ inputs.service-name }}-coverage
+          fail_ci_if_error: false
+          verbose: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.codecov-token }}
+
+      - name: Upload coverage as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codecov-report-${{ inputs.service-name }}
+          path: coverage/
+          retention-days: 30

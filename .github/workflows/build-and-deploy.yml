@@ -1,0 +1,285 @@
+name: Build & Deploy to Staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_REGISTRY: charly-brs
+
+concurrency:
+  group: build-deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  # Build Jobs
+  build-api:
+    name: Build API Docker Image
+    runs-on: ubuntu-latest
+    outputs:
+      image-digest: ${{ steps.docker-build.outputs.digest }}
+      image-url: ${{ steps.meta.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_REGISTRY }}/cesizen-api
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest
+
+      - name: Build and push Docker image
+        id: docker-build
+        uses: docker/build-push-action@v5
+        with:
+          context: cesizen-api
+          file: cesizen-api/docker/php/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ github.sha }}
+            BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+            VCS_REF=${{ github.sha }}
+
+      - name: Log image details
+        run: |
+          echo "API Image: ${{ steps.meta.outputs.tags }}"
+          echo "Digest: ${{ steps.docker-build.outputs.digest }}"
+
+  build-mobile:
+    name: Build Mobile
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cesizen-mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: cesizen-mobile/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build mobile
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-build
+          path: cesizen-mobile/dist
+          retention-days: 7
+
+  build-app:
+    name: Build Web App
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cesizen-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: cesizen-app/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        run: npm run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-build
+          path: cesizen-app/dist
+          retention-days: 7
+
+  # Deployment Jobs (only if all builds succeed)
+  deploy-api-staging:
+    name: Deploy API to Staging
+    needs: build-api
+    runs-on: ubuntu-latest
+    environment: staging
+    if: success()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure kubectl (optional, if using K8s)
+        run: echo "Configuring deployment for API..."
+
+      - name: Deploy API
+        run: |
+          echo "Deploying API image: ${{ needs.build-api.outputs.image-url }}"
+          echo "✅ API deployment step prepared"
+        # In production, add actual deployment commands here
+        # e.g., docker-compose up, kubectl apply, etc.
+
+      - name: Slack notification
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "API Deploy - ${{ job.status == 'success' && '✅' || '❌' }}",
+              "blocks": [{
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*API Deployment*\nEnvironment: Staging\nStatus: ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }}\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>"
+                }
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  deploy-mobile-staging:
+    name: Deploy Mobile to Staging
+    needs: build-mobile
+    runs-on: ubuntu-latest
+    environment: staging
+    if: success()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Deploy Mobile to Expo
+        run: |
+          echo "Mobile deployment to Expo staging channel..."
+          echo "✅ Mobile deployment step prepared"
+        # Uncomment and configure for actual Expo deployment
+        # env:
+        #   EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Slack notification
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Mobile Deploy - ${{ job.status == 'success' && '✅' || '❌' }}",
+              "blocks": [{
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Mobile Deployment*\nEnvironment: Staging\nStatus: ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }}\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>"
+                }
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  deploy-app-staging:
+    name: Deploy App to Staging
+    needs: build-app
+    runs-on: ubuntu-latest
+    environment: staging
+    if: success()
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download app build
+        uses: actions/download-artifact@v4
+        with:
+          name: app-build
+          path: dist
+
+      - name: Deploy to Netlify
+        run: |
+          echo "Web app deployment to staging..."
+          echo "✅ App deployment step prepared"
+        # Uncomment for actual Netlify deployment
+        # uses: nwtgck/actions-netlify@v3
+        # with:
+        #   publish-dir: ./dist
+        #   production-branch: main
+        # env:
+        #   NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        #   NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+      - name: Slack notification
+        if: always()
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "App Deploy - ${{ job.status == 'success' && '✅' || '❌' }}",
+              "blocks": [{
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*Web App Deployment*\nEnvironment: Staging\nStatus: ${{ job.status == 'success' && '✅ Success' || '❌ Failed' }}\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>"
+                }
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # Final notification
+  deployment-summary:
+    name: Deployment Summary
+    needs: [build-api, build-mobile, build-app, deploy-api-staging, deploy-mobile-staging, deploy-app-staging]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Overall Status
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | Build | Deploy |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| API | ${{ needs.build-api.result == 'success' && '✅' || '❌' }} | ${{ needs.deploy-api-staging.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Mobile | ${{ needs.build-mobile.result == 'success' && '✅' || '❌' }} | ${{ needs.deploy-mobile-staging.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| App | ${{ needs.build-app.result == 'success' && '✅' || '❌' }} | ${{ needs.deploy-app-staging.result == 'success' && '✅' || '❌' }} |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Final Slack notification
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "text": "Staging Deployment Complete - ${{ contains(join(needs.*.result, ','), 'failure') && '❌' || '✅' }}",
+              "blocks": [{
+                "type": "section",
+                "text": {
+                  "type": "mrkdwn",
+                  "text": "*🚀 Staging Deployment*\nBuild & Deploy Cycle: ${{ contains(join(needs.*.result, ','), 'failure') && '❌ Failed' || '✅ Success' }}\nCommit: <${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}|${{ github.sha }}>\nAuthor: ${{ github.actor }}"
+                }
+              }]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}

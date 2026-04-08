@@ -1,0 +1,88 @@
+version: 2
+updates:
+  # Composer dependencies (API)
+  - package-ecosystem: composer
+    directory: /cesizen-api
+    schedule:
+      interval: weekly
+      day: monday
+      time: "04:00"
+    assignees:
+      - Charly-BRS
+    reviewers:
+      - Charly-BRS
+    labels:
+      - dependencies
+      - php
+    commit-message:
+      prefix: "chore(api)"
+      prefix-development: "chore(api-dev)"
+      include: "scope"
+    allow:
+      - dependency-type: production
+      - dependency-type: development
+    ignore:
+      # Ignore major version updates for stability
+      - dependency-name: "symfony/*"
+        update-types: ["version-update:semver-major"]
+
+  # NPM dependencies (Mobile)
+  - package-ecosystem: npm
+    directory: /cesizen-mobile
+    schedule:
+      interval: weekly
+      day: tuesday
+      time: "04:00"
+    assignees:
+      - Charly-BRS
+    reviewers:
+      - Charly-BRS
+    labels:
+      - dependencies
+      - javascript
+    commit-message:
+      prefix: "chore(mobile)"
+      prefix-development: "chore(mobile-dev)"
+      include: "scope"
+    allow:
+      - dependency-type: production
+      - dependency-type: development
+
+  # NPM dependencies (App)
+  - package-ecosystem: npm
+    directory: /cesizen-app
+    schedule:
+      interval: weekly
+      day: wednesday
+      time: "04:00"
+    assignees:
+      - Charly-BRS
+    reviewers:
+      - Charly-BRS
+    labels:
+      - dependencies
+      - javascript
+    commit-message:
+      prefix: "chore(app)"
+      prefix-development: "chore(app-dev)"
+      include: "scope"
+    allow:
+      - dependency-type: production
+      - dependency-type: development
+
+  # GitHub Actions updates
+  - package-ecosystem: "github-actions"
+    directory: /
+    schedule:
+      interval: weekly
+      day: thursday
+      time: "04:00"
+    assignees:
+      - Charly-BRS
+    reviewers:
+      - Charly-BRS
+    labels:
+      - ci-cd
+      - github-actions
+    commit-message:
+      prefix: "ci: update GitHub Actions"
