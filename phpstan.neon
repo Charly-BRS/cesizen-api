@@ -1,0 +1,41 @@
+includes:
+    - vendor/phpstan/phpstan-doctrine/extension.neon
+    - vendor/phpstan/phpstan-symfony/extension.neon
+    - vendor/phpstan/phpstan-phpunit/extension.neon
+
+parameters:
+    level: 6
+    paths:
+        - src
+    excludePaths:
+        analyse:
+            - tests
+            - var
+            - vendor
+
+    # Symfony configuration
+    symfony:
+        container_xml_path: var/cache/dev/App_KernelDevDebugContainer.xml
+
+    # Doctrine configuration
+    doctrine:
+        reportUnmappedFields: true
+
+    # Ignore common patterns
+    ignoreErrors:
+        # Doctrine lazy-loading proxies
+        -
+            message: '#Parameter \#1 \$class of static method Doctrine\\ORM\\Proxy\\Factory::isProxyClass\(\) expects class-string, string given.#'
+            paths: %currentWorkingDirectory%/src
+        # Symfony Request attributes
+        -
+            message: '#Call to an undefined method Symfony\\Component\\HttpFoundation\\Request::#'
+            paths: %currentWorkingDirectory%/src
+
+    # Strict rules
+    checkMissingIterableValueType: true
+    checkGenericClassInNonGenericObjectType: false
+    checkMissingCallableSignature: false
+
+    # PHP version
+    phpVersion: 80400
