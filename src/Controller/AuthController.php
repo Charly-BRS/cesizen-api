@@ -1,5 +1,7 @@
 <?php
 
+// Commentaire de test pour le CI/CD 
+
 // src/Controller/AuthController.php
 // Contrôleur gérant l'authentification des utilisateurs.
 // - POST /api/auth/register        : inscription d'un nouvel utilisateur
