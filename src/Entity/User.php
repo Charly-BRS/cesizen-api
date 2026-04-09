@@ -103,6 +103,15 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[Groups(['user:read'])]
     private ?\DateTimeImmutable $createdAt = null;
 
+    // Token de réinitialisation de mot de passe (généré par /api/auth/forgot-password)
+    // Null quand aucune demande n'est en cours
+    #[ORM\Column(length: 100, nullable: true)]
+    private ?string $resetPasswordToken = null;
+
+    // Date d'expiration du token de réinitialisation (1 heure après génération)
+    #[ORM\Column(nullable: true)]
+    private ?\DateTimeImmutable $resetPasswordTokenExpiry = null;
+
     // Articles rédigés par cet utilisateur
     #[ORM\OneToMany(mappedBy: 'auteur', targetEntity: Article::class)]
     private Collection $articles;
@@ -226,6 +235,28 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setCreatedAt(\DateTimeImmutable $createdAt): static
     {
         $this->createdAt = $createdAt;
+        return $this;
+    }
+
+    public function getResetPasswordToken(): ?string
+    {
+        return $this->resetPasswordToken;
+    }
+
+    public function setResetPasswordToken(?string $resetPasswordToken): static
+    {
+        $this->resetPasswordToken = $resetPasswordToken;
+        return $this;
+    }
+
+    public function getResetPasswordTokenExpiry(): ?\DateTimeImmutable
+    {
+        return $this->resetPasswordTokenExpiry;
+    }
+
+    public function setResetPasswordTokenExpiry(?\DateTimeImmutable $expiry): static
+    {
+        $this->resetPasswordTokenExpiry = $expiry;
         return $this;
     }
 

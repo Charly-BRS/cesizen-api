@@ -29,7 +29,7 @@ class BreathingExerciseEndpointTest extends WebTestCase
         $client->request('POST', '/api/auth/register', [], [],
             ['CONTENT_TYPE' => 'application/json'],
             json_encode([
-                'email' => $email, 'plainPassword' => 'MotDePasse123!',
+                'email' => $email, 'password' => 'MotDePasse123!',
                 'prenom' => 'Test', 'nom' => 'User',
             ])
         );

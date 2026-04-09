@@ -16,3 +16,13 @@
 # Clés JWT (ne jamais committer les clés privées/publiques)
 /config/jwt/private.pem
 /config/jwt/public.pem
+
+###> phpunit/phpunit ###
+/phpunit.xml
+/.phpunit.cache/
+###< phpunit/phpunit ###
+
+###> symfony/phpunit-bridge ###
+.phpunit.result.cache
+/phpunit.xml
+###< symfony/phpunit-bridge ###

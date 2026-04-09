@@ -22,11 +22,14 @@ class AuthEndpointTest extends WebTestCase
 
     /**
      * Envoie une requête POST JSON vers l'API.
-     * Simplifie l'écriture des tests en regroupant la logique commune.
+     * Utilise le client passé en paramètre pour éviter de re-booter le kernel
+     * (WebTestCase n'autorise qu'un seul createClient() par test).
      */
-    private function postJson(string $url, array $donnees): \Symfony\Component\HttpFoundation\Response
-    {
-        $client = static::createClient();
+    private function postJson(
+        \Symfony\Bundle\FrameworkBundle\KernelBrowser $client,
+        string $url,
+        array $donnees
+    ): \Symfony\Component\HttpFoundation\Response {
         $client->request(
             'POST',
             $url,
@@ -45,44 +48,45 @@ class AuthEndpointTest extends WebTestCase
      */
     public function testRegisterAvecDonneesValidesRetourne201(): void
     {
+        $client = static::createClient();
         // Utilise un timestamp pour garantir un email unique à chaque run
         $email = 'test.register.' . time() . '@example.com';
 
-        $reponse = $this->postJson('/api/auth/register', [
-            'email'         => $email,
-            'plainPassword' => 'MotDePasse123!',
-            'prenom'        => 'Jean',
-            'nom'           => 'Test',
+        $reponse = $this->postJson($client, '/api/auth/register', [
+            'email'    => $email,
+            'password' => 'MotDePasse123!',
+            'prenom'   => 'Jean',
+            'nom'      => 'Test',
         ]);
 
         $this->assertSame(201, $reponse->getStatusCode());
 
         // La réponse doit contenir un objet JSON avec l'email
         $donnees = json_decode($reponse->getContent(), true);
-        $this->assertArrayHasKey('email', $donnees);
-        $this->assertSame($email, $donnees['email']);
+        $this->assertArrayHasKey('email', $donnees['utilisateur']);
+        $this->assertSame($email, $donnees['utilisateur']['email']);
     }
 
     /**
-     * Un email déjà utilisé doit retourner une erreur 422 (ou 400)
+     * Un email déjà utilisé doit retourner une erreur 409 Conflict
      */
     public function testRegisterEmailDejaPrisRetourneErreur(): void
     {
+        $client = static::createClient();
         $email = 'doublon.' . time() . '@example.com';
 
         // Première inscription → doit réussir
-        $this->postJson('/api/auth/register', [
-            'email' => $email, 'plainPassword' => 'MotDePasse123!',
+        $this->postJson($client, '/api/auth/register', [
+            'email' => $email, 'password' => 'MotDePasse123!',
             'prenom' => 'Jean', 'nom' => 'Test',
         ]);
 
-        // Deuxième inscription avec le même email → doit échouer
-        $reponse = $this->postJson('/api/auth/register', [
-            'email' => $email, 'plainPassword' => 'AutreMDP123!',
+        // Deuxième inscription avec le même email → doit échouer (409 Conflict)
+        $reponse = $this->postJson($client, '/api/auth/register', [
+            'email' => $email, 'password' => 'AutreMDP123!',
             'prenom' => 'Marie', 'nom' => 'Autre',
         ]);
 
-        // API Platform retourne 422 pour les erreurs de validation
         $this->assertGreaterThanOrEqual(400, $reponse->getStatusCode());
     }
 
@@ -91,11 +95,13 @@ class AuthEndpointTest extends WebTestCase
      */
     public function testRegisterEmailInvalideRetourne422(): void
     {
-        $reponse = $this->postJson('/api/auth/register', [
-            'email'         => 'pas-un-email',
-            'plainPassword' => 'MotDePasse123!',
-            'prenom'        => 'Jean',
-            'nom'           => 'Test',
+        $client = static::createClient();
+
+        $reponse = $this->postJson($client, '/api/auth/register', [
+            'email'    => 'pas-un-email',
+            'password' => 'MotDePasse123!',
+            'prenom'   => 'Jean',
+            'nom'      => 'Test',
         ]);
 
         $this->assertSame(422, $reponse->getStatusCode());
@@ -106,11 +112,13 @@ class AuthEndpointTest extends WebTestCase
      */
     public function testRegisterSansPrenomRetourne422(): void
     {
-        $reponse = $this->postJson('/api/auth/register', [
-            'email'         => 'champs.manquants@example.com',
-            'plainPassword' => 'MotDePasse123!',
+        $client = static::createClient();
+
+        $reponse = $this->postJson($client, '/api/auth/register', [
+            'email'    => 'champs.manquants.' . time() . '@example.com',
+            'password' => 'MotDePasse123!',
             // prenom manquant intentionnellement
-            'nom'           => 'Test',
+            'nom'      => 'Test',
         ]);
 
         $this->assertSame(422, $reponse->getStatusCode());
@@ -123,17 +131,18 @@ class AuthEndpointTest extends WebTestCase
      */
     public function testLoginAvecIdentifiantsValides(): void
     {
+        $client = static::createClient();
         $email = 'login.valide.' . time() . '@example.com';
         $motDePasse = 'MotDePasse123!';
 
-        // Créer l'utilisateur d'abord
-        $this->postJson('/api/auth/register', [
-            'email' => $email, 'plainPassword' => $motDePasse,
+        // Créer l'utilisateur d'abord (même client = même session HTTP)
+        $this->postJson($client, '/api/auth/register', [
+            'email' => $email, 'password' => $motDePasse,
             'prenom' => 'Jean', 'nom' => 'Test',
         ]);
 
         // Se connecter avec ces identifiants
-        $reponse = $this->postJson('/api/auth/login', [
+        $reponse = $this->postJson($client, '/api/auth/login', [
             'email'    => $email,
             'password' => $motDePasse,
         ]);
@@ -151,16 +160,17 @@ class AuthEndpointTest extends WebTestCase
      */
     public function testLoginMauvaisMotDePasseRetourne401(): void
     {
+        $client = static::createClient();
         $email = 'login.mauvais.' . time() . '@example.com';
 
         // Créer l'utilisateur
-        $this->postJson('/api/auth/register', [
-            'email' => $email, 'plainPassword' => 'BonMotDePasse123!',
+        $this->postJson($client, '/api/auth/register', [
+            'email' => $email, 'password' => 'BonMotDePasse123!',
             'prenom' => 'Jean', 'nom' => 'Test',
         ]);
 
         // Tenter de se connecter avec un mauvais mot de passe
-        $reponse = $this->postJson('/api/auth/login', [
+        $reponse = $this->postJson($client, '/api/auth/login', [
             'email'    => $email,
             'password' => 'MauvaisMotDePasse!',
         ]);
@@ -173,7 +183,9 @@ class AuthEndpointTest extends WebTestCase
      */
     public function testLoginEmailInexistantRetourne401(): void
     {
-        $reponse = $this->postJson('/api/auth/login', [
+        $client = static::createClient();
+
+        $reponse = $this->postJson($client, '/api/auth/login', [
             'email'    => 'inexistant@example.com',
             'password' => 'PeuImporte123!',
         ]);

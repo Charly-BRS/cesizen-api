@@ -31,7 +31,7 @@ class ArticleEndpointTest extends WebTestCase
     ): string {
         $client->request('POST', '/api/auth/register', [], [],
             ['CONTENT_TYPE' => 'application/json'],
-            json_encode(['email' => $email, 'plainPassword' => 'MotDePasse123!', 'prenom' => 'Test', 'nom' => 'User'])
+            json_encode(['email' => $email, 'password' => 'MotDePasse123!', 'prenom' => 'Test', 'nom' => 'User'])
         );
 
         if (in_array('ROLE_ADMIN', $roles)) {

@@ -27,14 +27,14 @@ use Symfony\Component\Validator\Constraints as Assert;
         // Lire les articles : accessible à tous les utilisateurs connectés
         new GetCollection(),
         new Get(),
-        // Créer un article : le processor injecte l'auteur connecté automatiquement
+        // Créer un article : admin OU rédacteur (le processor injecte l'auteur automatiquement)
         new Post(
-            security: "is_granted('ROLE_ADMIN')",
+            security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_REDACTEUR')",
             processor: ArticleStateProcessor::class
         ),
-        // Modifier un article : admin OU auteur de l'article
-        new Patch(security: "is_granted('ROLE_ADMIN') or object.getAuteur() == user"),
-        // Supprimer : réservé aux admins
+        // Modifier un article : admin OU rédacteur OU auteur de l'article
+        new Patch(security: "is_granted('ROLE_ADMIN') or is_granted('ROLE_REDACTEUR') or object.getAuteur() == user"),
+        // Supprimer : réservé aux admins uniquement
         new Delete(security: "is_granted('ROLE_ADMIN')"),
     ]
 )]

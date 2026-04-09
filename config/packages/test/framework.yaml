@@ -1,0 +1,11 @@
+# config/packages/test/framework.yaml
+# Configuration du Framework Symfony pour l'environnement de test.
+#
+# Ce fichier n'est chargé que quand APP_ENV=test.
+# Il active le client HTTP de test (WebTestCase) via framework.test: true.
+# Sans cette option, static::createClient() dans WebTestCase lève une exception.
+
+framework:
+    test: true
+    session:
+        storage_factory_id: session.storage.factory.mock_file
