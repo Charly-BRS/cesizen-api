@@ -86,6 +86,8 @@
         }
     },
     "require-dev": {
+        "symfony/browser-kit": "7.2.*",
+        "symfony/http-client": "7.2.*",
         "symfony/maker-bundle": "^1.67"
     }
 }
