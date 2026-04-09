@@ -14,6 +14,7 @@ use ApiPlatform\Metadata\GetCollection;
 use ApiPlatform\Metadata\Patch;
 use ApiPlatform\Metadata\Post;
 use App\Repository\BreathingExerciseRepository;
+use App\State\BreathingExerciseStateProcessor;
 use Doctrine\Common\Collections\ArrayCollection;
 use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
@@ -32,7 +33,8 @@ use Symfony\Component\Validator\Constraints as Assert;
         // CRUD exercices : réservé aux admins (F25)
         new Post(security: "is_granted('ROLE_ADMIN')"),
         new Patch(security: "is_granted('ROLE_ADMIN')"),
-        new Delete(security: "is_granted('ROLE_ADMIN')"),
+        // Suppression protégée : si l'exercice a des sessions, il est désactivé au lieu d'être supprimé
+        new Delete(security: "is_granted('ROLE_ADMIN')", processor: BreathingExerciseStateProcessor::class),
     ]
 )]
 class BreathingExercise
