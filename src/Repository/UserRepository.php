@@ -52,4 +52,18 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
             ->getQuery()
             ->getResult();
     }
+
+    // Retourne les comptes désactivés dont la dateDesactivation est antérieure à $dateLimite.
+    // Utilisé par la commande app:supprimer-comptes-expires pour la conformité RGPD.
+    public function trouverComptesASupprimer(\DateTimeImmutable $dateLimite): array
+    {
+        return $this->createQueryBuilder('u')
+            ->andWhere('u.isActif = :inactif')
+            ->andWhere('u.dateDesactivation IS NOT NULL')
+            ->andWhere('u.dateDesactivation <= :dateLimite')
+            ->setParameter('inactif', false)
+            ->setParameter('dateLimite', $dateLimite)
+            ->getQuery()
+            ->getResult();
+    }
 }

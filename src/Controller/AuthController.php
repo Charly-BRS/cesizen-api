@@ -23,6 +23,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[Route('/api/auth')]
@@ -410,6 +411,42 @@ class AuthController extends AbstractController
 
         return $this->json([
             'message' => "Mot de passe de {$utilisateur->getPrenom()} {$utilisateur->getNom()} réinitialisé avec succès.",
+        ]);
+    }
+
+    // ─── Désactivation du compte (RGPD) ────────────────────────────────────────
+    // Reçoit : rien (l'utilisateur connecté est identifié par son token JWT)
+    // Retourne : 200 { "message": "...", "supprimeLe": "..." }
+    //
+    // Met isActif = false et enregistre la date de désactivation.
+    // L'utilisateur ne peut plus se connecter immédiatement (UserChecker).
+    // Après 30 jours, la commande app:supprimer-comptes-expires supprime le compte.
+    #[Route('/desactiver-compte', name: 'api_auth_desactiver_compte', methods: ['POST'])]
+    #[IsGranted('ROLE_USER')]
+    public function desactiverCompte(): JsonResponse
+    {
+        /** @var User $utilisateur */
+        $utilisateur = $this->security->getUser();
+
+        if (!$utilisateur instanceof User) {
+            return $this->json(
+                ['message' => 'Utilisateur non authentifié.'],
+                Response::HTTP_UNAUTHORIZED
+            );
+        }
+
+        // Enregistre la désactivation avec la date du jour
+        $maintenant = new \DateTimeImmutable();
+        $utilisateur->setIsActif(false);
+        $utilisateur->setDateDesactivation($maintenant);
+        $this->entityManager->flush();
+
+        // Calcule la date de suppression définitive (J+30)
+        $dateSuppression = $maintenant->modify('+30 days')->format('d/m/Y');
+
+        return $this->json([
+            'message'    => 'Votre compte a été désactivé. Toutes vos données seront supprimées définitivement le ' . $dateSuppression . '.',
+            'supprimeLe' => $dateSuppression,
         ]);
     }
 }

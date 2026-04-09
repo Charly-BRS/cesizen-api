@@ -112,6 +112,14 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(nullable: true)]
     private ?\DateTimeImmutable $resetPasswordTokenExpiry = null;
 
+    // Date de désactivation du compte (null = compte actif).
+    // Quand un utilisateur demande la suppression de son compte, on le désactive
+    // et on enregistre cette date. Après 30 jours, une commande Symfony supprime
+    // définitivement le compte (conformité RGPD).
+    #[ORM\Column(nullable: true)]
+    #[Groups(['user:read'])]
+    private ?\DateTimeImmutable $dateDesactivation = null;
+
     // Articles rédigés par cet utilisateur
     #[ORM\OneToMany(mappedBy: 'auteur', targetEntity: Article::class)]
     private Collection $articles;
@@ -257,6 +265,17 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setResetPasswordTokenExpiry(?\DateTimeImmutable $expiry): static
     {
         $this->resetPasswordTokenExpiry = $expiry;
+        return $this;
+    }
+
+    public function getDateDesactivation(): ?\DateTimeImmutable
+    {
+        return $this->dateDesactivation;
+    }
+
+    public function setDateDesactivation(?\DateTimeImmutable $dateDesactivation): static
+    {
+        $this->dateDesactivation = $dateDesactivation;
         return $this;
     }
 
