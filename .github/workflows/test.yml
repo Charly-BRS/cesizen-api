@@ -165,7 +165,7 @@ jobs:
           path: coverage/mobile/
 
       - name: Upload to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v6
         with:
           files: ./coverage/api/clover.xml,./coverage/mobile/lcov.info
           flags: unittests
