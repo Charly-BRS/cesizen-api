@@ -2,7 +2,8 @@
 
 // src/Repository/ArticleRepository.php
 // Dépôt Doctrine pour l'entité Article.
-// Contient les méthodes de recherche personnalisées pour les articles.
+// Le filtrage (articles publiés, par catégorie...) est géré automatiquement
+// par ArticlePublieExtension — aucune méthode manuelle n'est nécessaire.
 
 namespace App\Repository;
 
@@ -18,29 +19,5 @@ class ArticleRepository extends ServiceEntityRepository
     public function __construct(ManagerRegistry $registry)
     {
         parent::__construct($registry, Article::class);
-    }
-
-    // Retourne tous les articles publiés, du plus récent au plus ancien
-    public function trouverTousPublies(): array
-    {
-        return $this->createQueryBuilder('a')
-            ->andWhere('a.isPublie = :publie')
-            ->setParameter('publie', true)
-            ->orderBy('a.createdAt', 'DESC')
-            ->getQuery()
-            ->getResult();
-    }
-
-    // Retourne les articles publiés d'une catégorie donnée
-    public function trouverParCategorie(int $categorieId): array
-    {
-        return $this->createQueryBuilder('a')
-            ->andWhere('a.isPublie = :publie')
-            ->andWhere('a.categorie = :categorieId')
-            ->setParameter('publie', true)
-            ->setParameter('categorieId', $categorieId)
-            ->orderBy('a.createdAt', 'DESC')
-            ->getQuery()
-            ->getResult();
     }
 }

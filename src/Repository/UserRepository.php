@@ -36,23 +36,6 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         $this->getEntityManager()->flush();
     }
 
-    // Recherche un utilisateur par son email
-    public function trouverParEmail(string $email): ?User
-    {
-        return $this->findOneBy(['email' => $email]);
-    }
-
-    // Retourne tous les utilisateurs actifs
-    public function trouverTousActifs(): array
-    {
-        return $this->createQueryBuilder('u')
-            ->andWhere('u.isActif = :actif')
-            ->setParameter('actif', true)
-            ->orderBy('u.createdAt', 'DESC')
-            ->getQuery()
-            ->getResult();
-    }
-
     // Retourne les comptes désactivés dont la dateDesactivation est antérieure à $dateLimite.
     // Utilisé par la commande app:supprimer-comptes-expires pour la conformité RGPD.
     public function trouverComptesASupprimer(\DateTimeImmutable $dateLimite): array
