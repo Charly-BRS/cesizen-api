@@ -10,12 +10,11 @@
 ###< symfony/framework-bundle ###
 
 ###> lexik/jwt-authentication-bundle ###
-/config/jwt/*.pem
+# /config/jwt/*.pem  ← décommenté pour permettre le CI (clés de dev committées)
 ###< lexik/jwt-authentication-bundle ###
 
-# Clés JWT (ne jamais committer les clés privées/publiques)
-/config/jwt/private.pem
-/config/jwt/public.pem
+# Clés JWT de production (ne jamais committer en prod)
+# Les clés de développement/test sont committées pour permettre le CI/CD
 
 ###> phpunit/phpunit ###
 /phpunit.xml
