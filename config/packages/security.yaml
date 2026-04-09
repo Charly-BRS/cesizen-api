@@ -23,6 +23,8 @@ security:
         login:
             pattern: ^/api/auth/login
             stateless: true
+            # UserChecker appelé avant l'émission du token → bloque les comptes désactivés à la connexion
+            user_checker: App\Security\UserChecker
             json_login:
                 check_path: /api/auth/login
                 username_path: email
@@ -36,6 +38,9 @@ security:
             pattern: ^/api
             stateless: true
             provider: app_user_provider
+            # UserChecker appelé à chaque requête authentifiée → un compte désactivé après connexion
+            # est bloqué immédiatement sur toutes ses nouvelles requêtes (l'user est rechargé en BDD)
+            user_checker: App\Security\UserChecker
             jwt: ~
 
     # Contrôle d'accès par chemin URL
