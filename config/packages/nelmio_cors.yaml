@@ -5,8 +5,9 @@ nelmio_cors:
     defaults:
         origin_regex: true
         allow_origin:
-            # Frontend React en développement
+            # Frontend React en développement (Vite) et production Docker
             - '^http://localhost:5173$'
+            - '^http://localhost:3000$'
             # Application Expo (peut utiliser différents ports)
             - '^http://localhost:19006$'
             - '^exp://.*$'
@@ -29,6 +30,7 @@ nelmio_cors:
         '^/api/':
             allow_origin:
                 - '^http://localhost:5173$'
+                - '^http://localhost:3000$'
                 - '^http://localhost:19006$'
                 - '^exp://.*$'
             allow_headers: ['*']
