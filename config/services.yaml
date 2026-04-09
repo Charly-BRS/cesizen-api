@@ -34,3 +34,9 @@ services:
     App\State\ArticleStateProcessor:
         arguments:
             $innerProcessor: '@api_platform.doctrine.orm.state.persist_processor'
+
+    # BreathingExerciseStateProcessor : gère la suppression conditionnelle des exercices.
+    # Utilise le remove_processor (DELETE) comme inner processor car il intercepte un DELETE.
+    App\State\BreathingExerciseStateProcessor:
+        arguments:
+            $innerProcessor: '@api_platform.doctrine.orm.state.remove_processor'
