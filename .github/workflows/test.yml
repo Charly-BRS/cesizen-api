@@ -153,13 +153,13 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download API coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: api-coverage
           path: coverage/api/
 
       - name: Download Mobile coverage
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mobile-coverage
           path: coverage/mobile/
