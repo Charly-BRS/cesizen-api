@@ -1,0 +1,8 @@
+# config/packages/test/mailer.yaml
+# En environnement de test (PHPUnit / CI), on utilise le transport "null".
+# Les emails sont acceptés par Symfony sans jamais être envoyés.
+# Cela évite l'erreur "Connection could not be established with host mailpit:1025"
+# en CI où Mailpit n'est pas disponible.
+framework:
+    mailer:
+        dsn: 'null://null'
