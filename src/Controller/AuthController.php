@@ -11,6 +11,8 @@
 //   POST /api/auth/reset-password     : réinitialiser le mot de passe d'un utilisateur (ROLE_ADMIN)
 //   POST /api/auth/forgot-password    : demande de réinitialisation par email (public)
 //   POST /api/auth/reset-with-token   : réinitialiser le MDP avec le token reçu (public)
+//
+// En développement, les emails sont interceptés par Mailpit : http://localhost:8025
 
 namespace App\Controller;
 
@@ -21,6 +23,9 @@ use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
+use Symfony\Component\DependencyInjection\Attribute\Autowire;
+use Symfony\Component\Mailer\MailerInterface;
+use Symfony\Component\Mime\Email;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -34,6 +39,12 @@ class AuthController extends AbstractController
         private UserPasswordHasherInterface $passwordHasher,
         private ValidatorInterface $validator,
         private Security $security,
+        private MailerInterface $mailer,
+        // Injecté depuis la variable d'environnement FRONTEND_URL
+        // Dev  → http://localhost:5173  (défini dans cesizen-api/.env)
+        // Prod → http://localhost:3000  (défini dans .env.prod racine)
+        #[Autowire(env: 'FRONTEND_URL')]
+        private string $frontendUrl,
     ) {}
 
     // ─── Inscription ────────────────────────────────────────────────────────────
@@ -233,14 +244,14 @@ class AuthController extends AbstractController
 
     // ─── Mot de passe oublié (public) ────────────────────────────────────────────
     //
-    // Génère un token de réinitialisation valable 1 heure et le stocke sur l'utilisateur.
-    // Note : en production, le token serait envoyé par email.
-    //        Dans cette version démo (pas de serveur SMTP), il est retourné directement
-    //        dans la réponse pour pouvoir être testé.
+    // Génère un token de réinitialisation sécurisé (64 hex chars) valable 1 heure,
+    // le stocke sur l'utilisateur, et envoie un email avec le lien.
+    //
+    // En développement : le mail est intercepté par Mailpit → http://localhost:8025
+    // En production   : configurer MAILER_DSN avec un vrai serveur SMTP
     //
     // Reçoit : { "email": "..." }
-    // Retourne : 200 { "message": "...", "token": "ABCD1234" }  ← token pour le reset
-    //            (même réponse si l'email n'existe pas, pour éviter l'énumération)
+    // Retourne : 200 { "message": "..." }  ← même réponse si l'email n'existe pas (sécurité)
     #[Route('/forgot-password', name: 'api_auth_forgot_password', methods: ['POST'])]
     public function motDePasseOublie(Request $request): JsonResponse
     {
@@ -254,62 +265,81 @@ class AuthController extends AbstractController
             );
         }
 
-        // Réponse générique pour éviter l'énumération des comptes
+        // Réponse générique — identique que l'email existe ou non (évite l'énumération)
         $reponseGenerique = [
-            'message' => "Si cet email est associé à un compte, un code de réinitialisation a été généré.",
+            'message' => "Si cet email est associé à un compte, un lien de réinitialisation a été généré.",
         ];
 
-        // Cherche l'utilisateur par email
         $utilisateur = $this->entityManager
             ->getRepository(User::class)
             ->findOneBy(['email' => $email]);
 
-        // Même si l'utilisateur n'existe pas, on retourne la même réponse (sécurité)
         if (!$utilisateur) {
             return $this->json($reponseGenerique);
         }
 
-        // Génère un token alphanumérique de 8 caractères
-        $caracteres = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        $token = '';
-        for ($i = 0; $i < 8; $i++) {
-            $token .= $caracteres[random_int(0, strlen($caracteres) - 1)];
-        }
+        // Génère un token cryptographiquement sûr : 32 bytes → 64 caractères hex
+        $token = bin2hex(random_bytes(32));
 
-        // Stocke le token et sa date d'expiration (1 heure)
+        // Stocke le token et son expiration (1 heure)
         $utilisateur->setResetPasswordToken($token);
-        $utilisateur->setResetPasswordTokenExpiry(
-            new \DateTimeImmutable('+1 hour')
-        );
+        $utilisateur->setResetPasswordTokenExpiry(new \DateTimeImmutable('+1 hour'));
         $this->entityManager->flush();
 
-        // En production : envoyer le token par email
-        // En démo : retourner le token directement dans la réponse
-        return $this->json([
-            'message' => $reponseGenerique['message'],
-            'token'   => $token, // ← À remplacer par envoi email en production
-            'note'    => 'Mode démo : en production, ce code serait envoyé par email.',
-        ]);
+        // Construit le lien de réinitialisation pointant vers le frontend
+        // L'URL de base est lue depuis FRONTEND_URL (injectée dans le constructeur)
+        $lien = rtrim($this->frontendUrl, '/') . '/reset-password?token=' . $token;
+
+        // Envoie l'email de réinitialisation via Symfony Mailer.
+        // En dev : intercepté par Mailpit (http://localhost:8025)
+        // En prod : transmis au serveur SMTP défini dans MAILER_DSN
+        $email = (new Email())
+            ->from('noreply@cesizen.fr')
+            ->to($utilisateur->getEmail())
+            ->subject('Réinitialisation de votre mot de passe CESIZen')
+            ->text(
+                "Bonjour {$utilisateur->getPrenom()},\n\n"
+                . "Tu as demandé à réinitialiser ton mot de passe CESIZen.\n\n"
+                . "Clique sur ce lien pour choisir un nouveau mot de passe (valable 1 heure) :\n"
+                . $lien . "\n\n"
+                . "Si tu n'es pas à l'origine de cette demande, ignore ce message.\n\n"
+                . "L'équipe CESIZen"
+            )
+            ->html(
+                "<p>Bonjour <strong>{$utilisateur->getPrenom()}</strong>,</p>"
+                . "<p>Tu as demandé à réinitialiser ton mot de passe CESIZen.</p>"
+                . "<p><a href=\"{$lien}\" style=\"background:#15803d;color:white;padding:10px 20px;"
+                . "border-radius:8px;text-decoration:none;font-weight:bold;display:inline-block\">"
+                . "Réinitialiser mon mot de passe</a></p>"
+                . "<p>Ce lien est valable <strong>1 heure</strong>.</p>"
+                . "<p>Si tu n'es pas à l'origine de cette demande, ignore ce message.</p>"
+                . "<p>L'équipe CESIZen</p>"
+            );
+
+        $this->mailer->send($email);
+
+        return $this->json($reponseGenerique);
     }
 
     // ─── Réinitialiser le MDP avec le token (public) ─────────────────────────────
     //
-    // Valide le token reçu (email + token + expiry), puis met à jour le mot de passe.
+    // Valide le token (64 hex chars) et met à jour le mot de passe.
     // Le token est supprimé après utilisation (usage unique).
+    // Le token identifie de façon unique l'utilisateur — pas besoin de l'email.
     //
-    // Reçoit : { "email": "...", "token": "ABCD1234", "nouveauMotDePasse": "..." }
+    // Reçoit : { "token": "a3f2...", "nouveauMotDePasse": "..." }
     // Retourne : 200 { "message": "..." }
+    //            400 si token invalide / expiré / champs manquants
     #[Route('/reset-with-token', name: 'api_auth_reset_with_token', methods: ['POST'])]
     public function reinitialiserAvecToken(Request $request): JsonResponse
     {
-        $donnees          = json_decode($request->getContent(), true);
-        $email            = trim($donnees['email'] ?? '');
-        $token            = strtoupper(trim($donnees['token'] ?? ''));
+        $donnees           = json_decode($request->getContent(), true);
+        $token             = trim($donnees['token'] ?? '');
         $nouveauMotDePasse = $donnees['nouveauMotDePasse'] ?? '';
 
-        if (!$email || !$token || !$nouveauMotDePasse) {
+        if (!$token || !$nouveauMotDePasse) {
             return $this->json(
-                ['message' => "Les champs email, token et nouveauMotDePasse sont obligatoires."],
+                ['message' => 'Les champs token et nouveauMotDePasse sont obligatoires.'],
                 Response::HTTP_BAD_REQUEST
             );
         }
@@ -321,32 +351,32 @@ class AuthController extends AbstractController
             );
         }
 
-        // Cherche l'utilisateur par email ET token (double vérification)
+        // Cherche l'utilisateur par le token (64 hex chars = suffisamment unique)
         $utilisateur = $this->entityManager
             ->getRepository(User::class)
-            ->findOneBy(['email' => $email, 'resetPasswordToken' => $token]);
+            ->findOneBy(['resetPasswordToken' => $token]);
 
         if (!$utilisateur) {
             return $this->json(
-                ['message' => 'Code invalide ou email incorrect.'],
+                ['message' => 'Lien de réinitialisation invalide.'],
                 Response::HTTP_BAD_REQUEST
             );
         }
 
-        // Vérifie que le token n'est pas expiré
+        // Vérifie que le token n'est pas expiré (durée de vie : 1 heure)
         $expiry = $utilisateur->getResetPasswordTokenExpiry();
         if (!$expiry || $expiry < new \DateTimeImmutable()) {
             return $this->json(
-                ['message' => 'Ce code a expiré. Fais une nouvelle demande.'],
+                ['message' => 'Ce lien a expiré. Fais une nouvelle demande.'],
                 Response::HTTP_BAD_REQUEST
             );
         }
 
-        // Réinitialise le mot de passe
+        // Met à jour le mot de passe
         $motDePasseHache = $this->passwordHasher->hashPassword($utilisateur, $nouveauMotDePasse);
         $utilisateur->setPassword($motDePasseHache);
 
-        // Supprime le token (usage unique)
+        // Invalide le token (usage unique)
         $utilisateur->setResetPasswordToken(null);
         $utilisateur->setResetPasswordTokenExpiry(null);
 

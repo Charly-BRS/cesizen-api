@@ -50,6 +50,9 @@ security:
         # Connexion et inscription : accessible sans être authentifié
         - { path: ^/api/auth/login, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/register, roles: PUBLIC_ACCESS }
+        # Réinitialisation de mot de passe : accessible sans être connecté (flow public)
+        - { path: ^/api/auth/forgot-password, roles: PUBLIC_ACCESS }
+        - { path: ^/api/auth/reset-with-token, roles: PUBLIC_ACCESS }
         # Documentation Swagger : accessible sans authentification
         - { path: ^/api/docs, roles: PUBLIC_ACCESS }
         - { path: ^/api/contexts, roles: PUBLIC_ACCESS }
